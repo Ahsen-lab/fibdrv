@@ -27,5 +27,6 @@ Mkfile.old
 dkms.conf
 
 # test-oriented
+client_bn
 client
 out

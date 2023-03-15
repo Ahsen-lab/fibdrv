@@ -6,6 +6,9 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/slab.h>
+
+#include "bn.h"
 
 MODULE_LICENSE("Dual MIT/GPL");
 MODULE_AUTHOR("National Cheng Kung University, Taiwan");
@@ -17,7 +20,7 @@ MODULE_VERSION("0.1");
 /* MAX_LENGTH is set to 92 because
  * ssize_t can't fit the number > 92
  */
-#define MAX_LENGTH 92
+#define MAX_LENGTH 1000
 
 static dev_t fib_dev = 0;
 static struct cdev *fib_cdev;
@@ -60,7 +63,26 @@ static ssize_t fib_read(struct file *file,
                         size_t size,
                         loff_t *offset)
 {
-    return (ssize_t) fib_sequence(*offset);
+    bn *fib;
+    size_t mode = size;
+
+    switch (mode) {
+    case 0: /* bn_fib_fdoubling */
+        fib = bn_alloc(1);
+        bn_fib_fdoubling(fib, *offset);
+        char *p = bn_to_string(fib);
+        size_t len = strlen(p) + 1;
+        size_t left = copy_to_user(buf, p, len);
+        bn_free(fib);
+        kfree(p);
+        return (ssize_t) left;
+
+    case 1: /* fib_sequence */
+        if (*offset > 92)
+            *offset = 92;
+        return (ssize_t) fib_sequence(*offset);
+    }
+    return 0;
 }
 
 /* write operation is skipped */
