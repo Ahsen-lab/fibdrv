@@ -22,13 +22,13 @@ int main()
     }
 
     for (int i = 0; i <= offset; i++) {
-        sz = write(fd, write_buf, strlen(write_buf));
+        sz = write(fd, write_buf, 0);
         printf("Writing to " FIB_DEV ", returned the sequence %lld\n", sz);
     }
 
     for (int i = 0; i <= offset; i++) {
         lseek(fd, i, SEEK_SET);
-        sz = read(fd, buf, 1);
+        sz = read(fd, buf, 0);
         printf("Reading from " FIB_DEV
                " at offset %d, returned the sequence "
                "%lld.\n",
@@ -37,7 +37,7 @@ int main()
 
     for (int i = offset; i >= 0; i--) {
         lseek(fd, i, SEEK_SET);
-        sz = read(fd, buf, 1);
+        sz = read(fd, buf, 0);
         printf("Reading from " FIB_DEV
                " at offset %d, returned the sequence "
                "%lld.\n",
