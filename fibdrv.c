@@ -27,6 +27,9 @@ static struct cdev *fib_cdev;
 static struct class *fib_class;
 static DEFINE_MUTEX(fib_mutex);
 
+static ktime_t kt;
+static ktime_t k2u;
+
 static long long fib_sequence(long long k)
 {
     if (k < 1)
@@ -64,23 +67,29 @@ static ssize_t fib_read(struct file *file,
                         loff_t *offset)
 {
     bn *fib;
-    size_t mode = size;
-
-    switch (mode) {
-    case 0: /* bn_fib_fdoubling */
-        fib = bn_alloc(1);
-        bn_fib_fdoubling(fib, *offset);
-        char *p = bn_to_string(fib);
-        size_t len = strlen(p) + 1;
-        size_t left = copy_to_user(buf, p, len);
-        bn_free(fib);
-        kfree(p);
-        return (ssize_t) left;
-
-    case 1: /* fib_sequence */
+    switch (size) {
+    case 0: /* fib_sequence */
         if (*offset > 92)
             *offset = 92;
         return (ssize_t) fib_sequence(*offset);
+
+    case 1: /* bn_fib_fdoubling */
+        fib = bn_alloc(1);
+
+        kt = ktime_get();
+        bn_fib_fdoubling(fib, *offset);
+        kt = ktime_sub(ktime_get(), kt);
+
+        char *p = bn_to_string(fib);
+        size_t len = strlen(p) + 1;
+
+        k2u = ktime_get();
+        size_t left = copy_to_user(buf, p, len);
+        k2u = ktime_sub(ktime_get(), k2u);
+
+        bn_free(fib);
+        kfree(p);
+        return (ssize_t) left;
     }
     return 0;
 }
@@ -91,7 +100,15 @@ static ssize_t fib_write(struct file *file,
                          size_t size,
                          loff_t *offset)
 {
-    return 1;
+    switch (size) {
+    case 0:
+        return 1;
+    case 1:
+        return ktime_to_ns(kt);
+    case 2:
+        return ktime_to_ns(k2u);
+    }
+    return 0;
 }
 
 static loff_t fib_device_lseek(struct file *file, loff_t offset, int orig)
