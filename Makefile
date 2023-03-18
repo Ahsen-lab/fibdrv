@@ -10,6 +10,7 @@ KDIR := /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)
 
 GIT_HOOKS := .git/hooks/applied
+LIBS = -lm
 
 all: $(GIT_HOOKS) client client_bn
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
@@ -28,8 +29,8 @@ unload:
 
 client: client.c
 	$(CC) -o $@ $^
-client_bn: client_bn.c
-	$(CC) -o $@ $^
+client_bn: client_bn.c statistics.c
+	$(CC) -o $@ $^ $(LIBS)
 
 PRINTF = env printf
 PASS_COLOR = \e[32;01m

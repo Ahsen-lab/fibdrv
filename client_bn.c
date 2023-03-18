@@ -5,8 +5,10 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#include "statistics.h"
 
 #define FIB_DEV "/dev/fibonacci"
+#define N 50
 
 int main()
 {
@@ -29,21 +31,33 @@ int main()
 
     fprintf(fp_plot, "#fib(n) | user | kernel | kernel_to_user\n");
 
+    double ut_samp[N], kt_samp[N], k2u_samp[N];
+    double ut, kt, k2u;
+    int threshold = 2;
+
     for (int i = 0; i <= offset; i++) {
         lseek(fd, i, SEEK_SET);
-        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-        long long sz = read(fd, buf, 1);
-        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
-        if (sz)
-            printf("returned message was truncated!\n");
+        for (int j = 0; j < N; j++) {
+            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+            long long sz = read(fd, buf, 1);
+            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+            if (sz) {
+                perror("returned message was truncated!\n");
+                exit(1);
+            }
+
+            ut_samp[j] = (double) ((end.tv_sec - start.tv_sec) * 1000000000LL +
+                                   (end.tv_nsec - start.tv_nsec));
+            kt_samp[j] = (double) write(fd, buf, 1);
+            k2u_samp[j] = (double) write(fd, buf, 2);
+        }
+
+        ut = data_processing(ut_samp, N, threshold);
+        kt = data_processing(kt_samp, N, threshold);
+        k2u = data_processing(k2u_samp, N, threshold);
+
         fprintf(fib, "fib(%d) = %s\n", i, buf);
-
-        long long kt = write(fd, buf, 1);
-        long long k2u = write(fd, buf, 2);
-
-        long long elapsed_ns = (end.tv_sec - start.tv_sec) * 1000000000LL +
-                               (end.tv_nsec - start.tv_nsec);
-        fprintf(fp_plot, "%-8d %-8lld %-8lld %-8lld\n", i, elapsed_ns, kt, k2u);
+        fprintf(fp_plot, "%-8d %-20f %-20f %-20f\n", i, ut, kt, k2u);
     }
 
     fclose(fib);
